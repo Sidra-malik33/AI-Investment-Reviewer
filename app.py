@@ -12,11 +12,11 @@ st.title("AI Investment Reviewer 📈")
 
 symbol = st.selectbox("Select Stock", sorted(df['Ticker'].unique()))
 
-if st.button('Review'):
-
+if st.button('Review', key="review_btn"):
     # ------------- scoring ----------------
     score_dict = score_stock(symbol)
     score_dict = {k.lower(): v for k, v in score_dict.items()}
+    st.session_state.last_score = score_dict     # save for later PDF
 
     st.subheader(f"Verdict: {score_dict['verdict']} (score = {score_dict['score']})")
 
@@ -39,11 +39,11 @@ if st.button('Review'):
     fig = px.line(three_months, x="Date", y="Price_x", title=f"{symbol} Price (3 months)")
     st.plotly_chart(fig, use_container_width=True)
 
-    # ------------- risk badge + meter ------------------  ↓↓↓ inside Review
+    # ------------- risk badge + meter ------------------
     score = score_dict.get("score", 0)
     risk_score = score_dict.get("risk_score", score)
-    # clamp within 0-1
-    risk_score = max(0, min(risk_score, 1))
+    risk_score = max(0, min(risk_score, 1))   # clamp
+
     if risk_score >= 0.7:
         color = "#ff4d4d"
         label = "HIGH RISK"
@@ -69,18 +69,25 @@ if st.button('Review'):
     st.subheader('Fundamentals Snapshot')
     st.table(f)
 
-    # -------- PDF Button --------------
-    if st.button('Download PDF Report'):
+
+# -------- PDF Button (outside review) --------------
+if st.button("Download PDF Report", key="pdf_btn"):
+    score_data = st.session_state.get("last_score")
+
+    if score_data is None:
+        st.error("Please click Review first.")
+    else:
         pdf_file = make_pdf(
             symbol,
-            score_dict['verdict'],
-            score_dict['score'],
-            score_dict.get('reasons', []),
+            score_data['verdict'],
+            score_data['score'],
+            score_data.get('reasons', []),
             filename=f"{symbol}_investment_report.pdf"
         )
+
         with open(pdf_file, "rb") as file:
             st.download_button(
-                label="Download Report PDF",
+                label="📄 Download Report PDF",
                 data=file,
                 file_name=f"{symbol}_investment_report.pdf",
                 mime="application/pdf"
